@@ -23,6 +23,7 @@ def download():
         else:
             print("download {}".format(key))
             urllib.request.urlretrieve(mnist_url + file_name, save_dir + "/" + file_name)
+
 def make_pickle():
     if os.path.exists(save_name):
         print("pickle file is already exist")
@@ -46,11 +47,18 @@ def make_pickle():
         print("make pickle file")
         pickle.dump(dataset, f, -1)
 
+def load():
+    if not os.path.exists(save_name):
+        download()
+        make_pickle()
+    with open(save_name, 'rb') as f:
+        dataset = pickle.load(f)
+    return dataset
+
 if __name__ == "__main__":
     download()
     make_pickle()
-    with open(save_name, 'rb') as f:
-        dataset = pickle.load(f)
+    dataset = load()
     for key in file_dic.keys():
         print(dataset[key][:5])
     
