@@ -36,7 +36,7 @@ def accuracy(X_test, t_test, w):
 
 
 if __name__ == "__main__":
-    dataset = load()
+    dataset = load.load()
     t_train = one_of_k(dataset["train_labels"])
     t_test = dataset["test_labels"]
     X_train = dataset["train_images"]/255
