@@ -29,6 +29,7 @@ def sigmoid_dif(z):
 
 def forward(X, Node, W, B, h):
     N = len(X)
+    print("N",N)
     L = len(Node)
     Z = [np.zeros([Node[l], N]) for l in range(L)] # value after affine
     U = [np.zeros([Node[l], N]) for l in range(L)] # value after activation
@@ -39,7 +40,31 @@ def forward(X, Node, W, B, h):
     #print("forward U[L-1].shape", U[L-1].shape)
     #print("forward Z", Z[L-1][:,0])
     #print("softmax", softmax(U[L-1])[:,0])
-    return (U, Z)
+    return U, Z
+
+def forward_test():
+    X = np.array(
+        [[0, 1, 2],
+         [3, 4, 5]]).T
+    Node = [2, 1, 3]
+    W = {
+        1: np.array([[1],
+                     [2]]),
+        2: np.array([[0, 1, 2]])
+    }
+    B = {
+        1: np.array([[1]]),
+        2: np.array([[0],
+                     [1],
+                     [2]])
+    }
+    h = {
+        1: lambda x: x,
+        2: lambda x: x
+    }
+    U, Z = forward(X, Node, W, B, h)
+    print("forward test {}".format(Z))
+forward_test()
 
 def accuracy(X, t, Node, W, B, h):
     _, Z = forward(X, Node, W, B, h)
