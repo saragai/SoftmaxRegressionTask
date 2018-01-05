@@ -28,7 +28,7 @@ def sigmoid_dif(z):
     return z * (1 - z)
 
 def forward(X, Node, W, B, h):
-    N = len(X)
+    N = len(X[0])
     print("N",N)
     L = len(Node)
     Z = [np.zeros([Node[l], N]) for l in range(L)] # value after affine
@@ -45,7 +45,7 @@ def forward(X, Node, W, B, h):
 def forward_test():
     X = np.array(
         [[0, 1, 2],
-         [3, 4, 5]]).T
+         [3, 4, 5]])
     Node = [2, 1, 3]
     W = {
         1: np.array([[1],
@@ -63,7 +63,10 @@ def forward_test():
         2: lambda x: x
     }
     U, Z = forward(X, Node, W, B, h)
-    print("forward test {}".format(Z))
+    if (Z[2] == np.array([[0,0,0],[8,11,14],[16,22,28]])).all():
+        pass
+    else:
+        print("forward test ===\n{}\n".format(Z))
 forward_test()
 
 def accuracy(X, t, Node, W, B, h):
@@ -79,39 +82,43 @@ if __name__ == "__main__":
     dataset = load.load()
     t_train = one_of_k(dataset["train_labels"])
     t_test = dataset["test_labels"]
-    X_train = dataset["train_images"]/255
-    X_test = dataset["test_images"]/255
+    X_train = dataset["train_images"].reshape([784, 60000])/255
+    X_test = dataset["test_images"].reshape([784, 10000])/255
 
-    print(t_train.shape)
-    print(X_train.shape)
+    print("t_train.shape", t_train.shape)
+    print("X_train.shape", X_train.shape)
     N = 60000 # Number of data
-    print(N)
-
 
     #Hyper Param
-    M = 3 # maximum iterations (epoch)
+    M = 30 # maximum iterations (epoch)
     e = 0.0001 # learning rate
-
     Node = [784, 10]
     L = len(Node)
 
-    # initialize
+    # =================
+    #    initialize
+    # =================
+
     W = {}
     B = {}
+    U = {}
+    Z = {}
     h = {}
     h_dif = sigmoid_dif
     for l in range(1, L):
         W[l] = np.random.normal(0, 0.1, (Node[l-1], Node[l])) #weight
         B[l] = np.zeros([Node[l], 1]) # bias for affine
+        U[l] = np.zeros([Node[l], N]) # value in layer
+        Z[l] = np.zeros([Node[l], N]) # value after layer
         if l == L-1:
             h[l] = softmax
         else:
             h[l] = sigmoid
 
-    U = [np.zeros([Node[l], N]) for l in range(L)] # value after affine
-    Z = [np.zeros([Node[l], N]) for l in range(L)] # value after activation
 
-
+    # =================
+    #    training
+    # =================
     for m in range(M):
         # initialize error
         dW = {}
@@ -122,17 +129,11 @@ if __name__ == "__main__":
 
         # forward propagation
         U, Z = forward(X_train, Node, W, B, h)
-        
-        print("U[L-1]:", U[L-1][:5,0])
-        print("Z[L-1]:", Z[L-1][:5,0])
 
         # error of output layer
         delta = [np.zeros([Node[l], N]) for l in range(L)]
-
         delta[L-1] = Z[L-1] - t_train.reshape([10, N])
         dW[L-1] = np.dot(Z[L-2], delta[L-1].T)
-        print("W",W[L-1][:5,0])
-        print("dW",dW[L-1][:5,0])
         dB[L-1] = delta[L-1].sum(axis=1).reshape([Node[L-1], 1])
 
         # back propagation
@@ -150,6 +151,12 @@ if __name__ == "__main__":
                 print("===== B shapes {}, dB shapes {} do not match".format(B[l].shape, dB[l].shape))
             W[l] = W[l] - e * dW[l] / N
             B[l] = B[l] - e * dB[l] / N
+
+
+        #print("U[L-1]:", U[L-1][:5,0])
+        #print("Z[L-1]:", Z[L-1][:5,0])
+        #print("W",W[L-1][:5,0])
+        #print("dW",dW[L-1][:5,0])
 
         acc = accuracy(X_test, t_test, Node, W, B, h)
         print("m = {}, acc = {}".format(m, acc))
