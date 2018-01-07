@@ -11,97 +11,166 @@ def one_of_k(data):
     return labels
 
 def softmax(x):
-    dev = np.sum(np.exp(x), axis=1)
-    print("dev",dev.shape)
-    dev.shape = [dev.size, 1]
+    dev = np.sum(np.exp(x), axis=0)
+    #print("softmax shape", dev.shape)
+    dev.shape = [1, dev.size]
     return np.exp(x) / dev
-
     
-def ReLu(x):
+def ReLU(x):
     mask = x < 0
-    dx = x[mask] = 0
-    return dx
+    x[mask] = 0
+    return x
 
-def sigmoid(x):
-    return 1/(1+np.exp(-x))
+def ReLU_dif(x):
+    mask = x < 0
+    x[mask] = 0
+    x[~mask] = 1
+    return x
 
-def sigmoid_dif(z):
-    return z * (1-z)
+def sigmoid(u):
+    return 1 / (1 + np.exp(-u))
+
+def sigmoid_dif(u):
+    z = sigmoid(u)
+    return z * (1 - z)
+
+def forward(X, Node, W, B, h):
+    N = len(X[0])
+    L = len(Node)
+    Z = [np.zeros([Node[l], N]) for l in range(L)] # value after affine
+    U = [np.zeros([Node[l], N]) for l in range(L)] # value after activation
+    Z[0] = X
+    for l in range(1, L):
+        U[l] = np.dot(W[l].T, Z[l-1]) + B[l]#.reshape([Node[l],N]) 
+        Z[l] = h[l](U[l])
+    #print("forward U[L-1].shape", U[L-1].shape)
+    #print("forward Z", Z[L-1][:,0])
+    #print("softmax", softmax(U[L-1])[:,0])
+    return U, Z
+
+def forward_test():
+    X = np.array([[0, 1, 2],
+                  [3, 4, 5]])
+    Node = [2, 1, 3]
+    W = {1: np.array([[1],
+                     [2]]),
+         2: np.array([[0, 1, 2]])}
+    B = {1: np.array([[1]]),
+         2: np.array([[0],
+                     [1],
+                     [2]])}
+    h = {1: lambda x: x,
+         2: lambda x: x}
+    U, Z = forward(X, Node, W, B, h)
+    if (Z[2] == np.array([[0,0,0],[8,11,14],[16,22,28]])).all():
+        pass
+    else:
+        print("=== error forward test ===\n{}\n".format(Z))
+forward_test()
+
+def accuracy(X, t, Node, W, B, h):
+    _, Z = forward(X, Node, W, B, h)
+    L = len(Node)
+    #print(Z[L-1].shape)
+    arg = np.argmax(Z[L-1], axis=0)
+    return np.sum(arg == t)
 
 
 if __name__ == "__main__":
     dataset = load.load()
-    t_train = one_of_k(dataset["train_labels"])
+    t_train = one_of_k(dataset["train_labels"]).T
     t_test = dataset["test_labels"]
-    X_train = dataset["train_images"]/255
-    X_test = dataset["test_images"]/255
+    X_train = dataset["train_images"].T/255
+    X_test = dataset["test_images"].T/255
 
-    print(t_train.shape)
-    print(X_train.shape)
-    N = 60000 # Number of data
-    print(N)
-    #"""
+    print("t_train.shape", t_train.shape)
+    print("X_train.shape", X_train.shape)
+    N = 1000 # Number of data
+
     #Hyper Param
-    M = 1 # maximum iterations (epoch)
-    e = 0.001 # learning rate
-
-    Node = [784, 100, 10]
+    M = 20000 # maximum iterations (epoch)
+    e = 0.1 # learning rate
+    Node = [784, 256, 128, 64, 10]
     L = len(Node)
 
-    h = sigmoid
-    h_dif = sigmoid_dif
+    # =================
+    #    initialize
+    # =================
 
-    # initialize
     W = {}
     B = {}
+    U = {}
+    Z = {}
+    h = {}
+    h_dif = {}
+    #h_dif = lambda x: x
     for l in range(1, L):
-        W[l] = np.zeros([Node[l-1], Node[l]]) #weight
+        W[l] = np.random.normal(0, 0.1, (Node[l-1], Node[l])) #weight
         B[l] = np.zeros([Node[l], 1]) # bias for affine
+        U[l] = np.zeros([Node[l], N]) # value in layer
+        Z[l] = np.zeros([Node[l], N]) # value after layer
+        if l == L-1:
+            h[l] = softmax
+        elif l == 1:
+            h[l] = ReLU
+            h_dif[l] = ReLU_dif
+        else:
+            h[l] = sigmoid #ReLU
+            h_dif[l] = sigmoid_dif #ReLU_dif
 
-    Z = [np.zeros([Node[l], 1]) for l in range(L)] # value after affine
-    U = [np.zeros([Node[l], 1]) for l in range(L)] # value after activation
+    # =================
+    #    training
+    # =================
+    for m in range(M+1):
+        # batch
+        #X = X_train
+        #t = t_train
 
-
-    for m in range(M):
+        # mini batch
+        batch_mask = np.random.randint(0, 60000, N)
+        X = X_train[:, batch_mask]
+        t = t_train[:, batch_mask]
+        
         # initialize error
+        delta = [np.zeros([Node[l], N]) for l in range(L)]
         dW = {}
         dB = {}
         for l in range(1, L):
-            dW[l] = np.zeros([Node[l-1], Node[l]]) #weight
-            dB[l] = np.zeros([Node[l], 1])# bias for affine
+            dW[l] = np.zeros_like(W[l]) # weight
+            dB[l] = np.zeros_like(B[l]) # bias for affine
 
-        # iterate for data
-        for n in range(N):
-            # forward propagation
-            Z[0] = X_train[n].reshape([Node[0], 1])
-            for l in range(1, L):
-                U[l] = np.dot(W[l].T, Z[l-1]).reshape([Node[l],1]) + B[l]
-                #print("W[{}].T.shape : {}".format(l, W[l].T.shape))
-                #print("Z[{}].shape : {}".format(l, Z[l].shape))
-                #print("U[{}].shape : {}".format(l, U[l].shape))
-                Z[l] = h(U[l])
+        # forward propagation
+        U, Z = forward(X, Node, W, B, h)
 
-            # error of output layer
-            delta = [np.zeros([Node[l], 1]) for l in range(L)]
+        # error of output layer
+        delta[L-1] = Z[L-1] - t
+        dW[L-1] = np.dot(Z[L-2], delta[L-1].T)
+        dB[L-1] = delta[L-1].sum(axis=1).reshape([Node[L-1], 1])
 
-            delta[L-1] = Z[L-1] - t_train[n].reshape([10,1])
-            dW[L-1] = dW[L-1] + np.dot(Z[L-2], delta[L-1].T)
-            dB[L-1] = dB[L-1] + delta[L-1]
-
-            # back propagation
-            for l in range(L-2, 0, -1):
-                delta[l] = h_dif(Z[l]) * np.dot(W[l+1], delta[l+1]) # error
-                #print("U[{}].shape : {}".format(l, U[l].shape))
-                #print("h(U[{}]).shape :{}".format(l, h(U[l]).shape))
-                #print("W[{}] * delta[{}] .shape :{}".format(l+1,l+1, np.dot(W[l+1], delta[l+1]).shape))
-                dJ_W = np.dot(Z[l-1], delta[l].T)
-                dJ_b = delta[l]
-                dW[l] = dW[l] + dJ_W
-                dB[l] = dB[l] + dJ_b
+        # back propagation
+        for l in range(L-2, 0, -1):
+            delta[l] = h_dif[l](U[l]) * np.dot(W[l+1], delta[l+1]) # error
+            dW[l] = np.dot(Z[l-1], delta[l].T)
+            dB[l] = delta[l].sum(axis=1).reshape([Node[l], 1])
 
         for l in range(1, L):
+            if(W[l].shape != dW[l].shape):
+                print("===== W shapes {}, dW shapes {} do not match".format(W[l].shape, dW[l].shape))
+            if(B[l].shape != dB[l].shape):
+                print("===== B shapes {}, dB shapes {} do not match".format(B[l].shape, dB[l].shape))
             W[l] = W[l] - e * dW[l] / N
             B[l] = B[l] - e * dB[l] / N
 
-        #"""
+
+        #print("U[L-1]:", U[L-1][:5,0])
+        #print("Z[L-1]:", Z[L-1][:5,0])
+        #print("W",W[L-1][:5,0])
+        #print("dW",dW[L-1][:5,0])
+
+        if m % 500 == 0:
+            acc = accuracy(X_test, t_test, Node, W, B, h)
+            print("m = {}, acc = {}".format(m, acc))
+
     print("end")
+
+
