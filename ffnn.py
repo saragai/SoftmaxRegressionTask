@@ -1,6 +1,5 @@
-import pickle
 import numpy as np
-import matplotlib as plt
+import matplotlib.pyplot as plt
 from load import load
 import time
 
@@ -41,11 +40,8 @@ def forward(X, Node, W, B, h):
     U = [np.zeros([Node[l], N]) for l in range(L)] # value after activation
     Z[0] = X
     for l in range(1, L):
-        U[l] = np.dot(W[l].T, Z[l-1]) + B[l]#.reshape([Node[l],N]) 
+        U[l] = np.dot(W[l].T, Z[l-1]) + B[l]
         Z[l] = h[l](U[l])
-    #print("forward U[L-1].shape", U[L-1].shape)
-    #print("forward Z", Z[L-1][:,0])
-    #print("softmax", softmax(U[L-1])[:,0])
     return U, Z
 
 def forward_test():
@@ -71,9 +67,8 @@ forward_test()
 def accuracy(X, t, Node, W, B, h):
     _, Z = forward(X, Node, W, B, h)
     L = len(Node)
-    #print(Z[L-1].shape)
     arg = np.argmax(Z[L-1], axis=0)
-    return np.sum(arg == t)
+    return np.average(arg == t)
 
 
 if __name__ == "__main__":
@@ -88,22 +83,33 @@ if __name__ == "__main__":
     N = 1000 # Number of data
 
     #Hyper Param
-    M = 20000 # maximum iterations (epoch)
+    M = 30000 # maximum iterations (epoch)
     e = 0.1 # learning rate
     Node = [784, 256, 128, 64, 10]
     L = len(Node)
 
+    # for Plot
+    fig = plt.figure()
+    plt.subplots_adjust(wspace=0.4)
+    ax = fig.add_subplot(111)
+    ax.set_title("Feed Forward Neural Network")
+    ax.set_xlabel("epoch (1 epoch has {} data)".format(N))
+    ax.set_ylabel("accuracy")
+    ax.set_ylim(0, 1.0)
+    xplot = []
+    yplot = []
+
+
+
     # =================
     #    initialize
     # =================
-
     W = {}
     B = {}
     U = {}
     Z = {}
     h = {}
     h_dif = {}
-    #h_dif = lambda x: x
     for l in range(1, L):
         W[l] = np.random.normal(0, 0.1, (Node[l-1], Node[l])) #weight
         B[l] = np.zeros([Node[l], 1]) # bias for affine
@@ -161,7 +167,6 @@ if __name__ == "__main__":
             W[l] = W[l] - e * dW[l] / N
             B[l] = B[l] - e * dB[l] / N
 
-
         #print("U[L-1]:", U[L-1][:5,0])
         #print("Z[L-1]:", Z[L-1][:5,0])
         #print("W",W[L-1][:5,0])
@@ -169,8 +174,13 @@ if __name__ == "__main__":
 
         if m % 500 == 0:
             acc = accuracy(X_test, t_test, Node, W, B, h)
+            xplot.append(m)
+            yplot.append(acc)
             print("m = {}, acc = {}".format(m, acc))
 
+    ax.plot(xplot, yplot)
+    plt.show()
+    plt.savefig("FFNN.png")
     print("end")
 
 
