@@ -108,7 +108,7 @@ if __name__ == "__main__":
     X_rand = [X_test.copy() for i in range(6)]
     for i in range(6):
         for n in range(10000):
-            num_rand = np.random.binomial(n=784, p=i*0.05)
+            num_rand = np.random.binomial(n=784, p=0.15)
             rand_mask = np.random.choice(784, num_rand, replace=False)
             X_rand[i][rand_mask, n] = np.random.rand(num_rand)
     #"""
